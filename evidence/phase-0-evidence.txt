@@ -1,8 +1,8 @@
-﻿================================================================================
-PHASE 0 DELIVERABLES AND VERIFICATION EVIDENCE
+================================================================================
+PHASE 0 DELIVERABLES AND CONTAINER VERIFICATION EVIDENCE
 ================================================================================
 
-Date: 2026-09-29 11:54:52 +05:30
+Date: 2026-09-29 12:07:32 +05:30
 Repository: https://github.com/anandreddyammagari-del/deskline
 Pull Request: https://github.com/anandreddyammagari-del/deskline/pull/1
 Active Branch: phase-0-setup -> base: main
@@ -10,7 +10,6 @@ Active Branch: phase-0-setup -> base: main
 --------------------------------------------------------------------------------
 1. REPOSITORY TREE (Filtered: Excluding node_modules, .git, dist)
 --------------------------------------------------------------------------------
-C:\PROJECT\deskline\.env
 C:\PROJECT\deskline\.env.example
 C:\PROJECT\deskline\.gitignore
 C:\PROJECT\deskline\DECISION_LOG.md
@@ -19,65 +18,123 @@ C:\PROJECT\deskline\README.md
 C:\PROJECT\deskline\WORKLOG.md
 C:\PROJECT\deskline\backend\Dockerfile
 C:\PROJECT\deskline\backend\nest-cli.json
-C:\PROJECT\deskline\backend\package-lock.json
 C:\PROJECT\deskline\backend\package.json
 C:\PROJECT\deskline\backend\tsconfig.json
+C:\PROJECT\deskline\backend\prisma\migrations\.gitkeep
+C:\PROJECT\deskline\backend\src\admin\.gitkeep
+C:\PROJECT\deskline\backend\src\audit\.gitkeep
+C:\PROJECT\deskline\backend\src\auth\.gitkeep
+C:\PROJECT\deskline\backend\src\comments\.gitkeep
+C:\PROJECT\deskline\backend\src\common\dto\.gitkeep
+C:\PROJECT\deskline\backend\src\common\guards\.gitkeep
+C:\PROJECT\deskline\backend\src\common\filters\http-exception.filter.ts
+C:\PROJECT\deskline\backend\src\dashboard\.gitkeep
+C:\PROJECT\deskline\backend\src\health\health.controller.ts
+C:\PROJECT\deskline\backend\src\routing\.gitkeep
+C:\PROJECT\deskline\backend\src\scheduler\.gitkeep
+C:\PROJECT\deskline\backend\src\sla\.gitkeep
+C:\PROJECT\deskline\backend\src\tickets\.gitkeep
+C:\PROJECT\deskline\backend\src\users\.gitkeep
 C:\PROJECT\deskline\backend\src\app.module.ts
 C:\PROJECT\deskline\backend\src\main.ts
-C:\PROJECT\deskline\backend\src\common\filters\http-exception.filter.ts
-C:\PROJECT\deskline\backend\src\health\health.controller.ts
+C:\PROJECT\deskline\backend\test\e2e\.gitkeep
+C:\PROJECT\deskline\backend\test\k6\.gitkeep
 C:\PROJECT\deskline\docs\requirements.md
+C:\PROJECT\deskline\evidence\screenshots\.gitkeep
+C:\PROJECT\deskline\evidence\phase-0-evidence.txt
 C:\PROJECT\deskline\frontend\Dockerfile
 C:\PROJECT\deskline\frontend\index.html
 C:\PROJECT\deskline\frontend\nginx.conf
-C:\PROJECT\deskline\frontend\package-lock.json
 C:\PROJECT\deskline\frontend\package.json
 C:\PROJECT\deskline\frontend\tsconfig.json
 C:\PROJECT\deskline\frontend\vite.config.ts
+C:\PROJECT\deskline\frontend\src\app\.gitkeep
+C:\PROJECT\deskline\frontend\src\components\.gitkeep
+C:\PROJECT\deskline\frontend\src\styles\tokens.css
+C:\PROJECT\deskline\frontend\src\workspaces\admin\.gitkeep
+C:\PROJECT\deskline\frontend\src\workspaces\agent\.gitkeep
+C:\PROJECT\deskline\frontend\src\workspaces\employee\.gitkeep
+C:\PROJECT\deskline\frontend\src\workspaces\manager\.gitkeep
 C:\PROJECT\deskline\frontend\src\App.tsx
 C:\PROJECT\deskline\frontend\src\main.tsx
-C:\PROJECT\deskline\frontend\src\styles\tokens.css
 
 --------------------------------------------------------------------------------
-2. REVERSE PROXY & HEALTH CHECK VERIFICATION
+2. DOCKER COMPOSE PS (ALL THREE SERVICES HEALTHY)
 --------------------------------------------------------------------------------
-Direct Backend Health Check (GET http://localhost:4000/health):
-HTTP 200 OK
-{"status":"ok","service":"deskline-api","timestamp":"2026-09-29T06:20:47.109Z","uptime":37.3396532}
+NAME           IMAGE                COMMAND                  SERVICE   CREATED          STATUS                    PORTS
+deskline-api   deskline-api         "docker-entrypoint.s…"   api       30 seconds ago   Up 24 seconds (healthy)   0.0.0.0:4000->4000/tcp, [::]:4000->4000/tcp
+deskline-db    postgres:16-alpine   "docker-entrypoint.s…"   db        2 minutes ago    Up 2 minutes (healthy)    0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
+deskline-web   deskline-web         "/docker-entrypoint.…"   web       27 seconds ago   Up 19 seconds (healthy)   0.0.0.0:3000->80/tcp, [::]:3000->80/tcp
 
-Web Container Proxy Health Check (GET http://localhost:3000/api/health):
-HTTP 200 OK
-HTTP/1.1 200 OK
-access-control-allow-origin: http://localhost:3000
-access-control-allow-credentials: true
-content-type: application/json; charset=utf-8
-{"status":"ok","service":"deskline-api","timestamp":"2026-09-29T06:21:31.615Z","uptime":81.844367}
+--------------------------------------------------------------------------------
+3. DOCKER COMPOSE LOGS (--tail=20)
+--------------------------------------------------------------------------------
+deskline-web  | 127.0.0.1 - - [29/Sep/2026:06:36:59 +0000] "GET /web-health HTTP/1.1" 200 40 "-" "Wget" "-"
+deskline-web  | 127.0.0.1 - - [29/Sep/2026:06:37:04 +0000] "GET /web-health HTTP/1.1" 200 40 "-" "Wget" "-"
+deskline-web  | 127.0.0.1 - - [29/Sep/2026:06:37:09 +0000] "GET /web-health HTTP/1.1" 200 40 "-" "Wget" "-"
+deskline-web  | 127.0.0.1 - - [29/Sep/2026:06:37:14 +0000] "GET /web-health HTTP/1.1" 200 40 "-" "Wget" "-"
+deskline-web  | 127.0.0.1 - - [29/Sep/2026:06:37:19 +0000] "GET /web-health HTTP/1.1" 200 40 "-" "Wget" "-"
 
-Web Root Page Verification (GET http://localhost:3000/):
-HTTP 200 OK (Served React 18 SPA index.html)
+deskline-db   | PostgreSQL init process complete; ready for start up.
+deskline-db   | 2026-09-29 06:35:00.439 UTC [1] LOG:  starting PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+deskline-db   | 2026-09-29 06:35:00.440 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+deskline-db   | 2026-09-29 06:35:00.440 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+deskline-db   | 2026-09-29 06:35:00.449 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+deskline-db   | 2026-09-29 06:35:00.460 UTC [57] LOG:  database system was shut down at 2026-09-29 06:35:00 UTC
+deskline-db   | 2026-09-29 06:35:00.472 UTC [1] LOG:  database system is ready to accept connections
+
+deskline-api  | [Nest] 1  - 09/29/2026, 6:36:48 AM     LOG [NestFactory] Starting Nest application...
+deskline-api  | [Nest] 1  - 09/29/2026, 6:36:48 AM     LOG [InstanceLoader] AppModule dependencies initialized +9ms
+deskline-api  | [Nest] 1  - 09/29/2026, 6:36:49 AM     LOG [RoutesResolver] HealthController {/}: +169ms
+deskline-api  | [Nest] 1  - 09/29/2026, 6:36:49 AM     LOG [RouterExplorer] Mapped {/health, GET} route +3ms
+deskline-api  | [Nest] 1  - 09/29/2026, 6:36:49 AM     LOG [RouterExplorer] Mapped {/api/health, GET} route +1ms
+deskline-api  | [Nest] 1  - 09/29/2026, 6:36:49 AM     LOG [NestApplication] Nest application successfully started +2ms
+deskline-api  | [Deskline API] Application running on port 4000
+
+--------------------------------------------------------------------------------
+4. REVERSE PROXY & HEALTH CHECK VERIFICATION THROUGH CONTAINERS
+--------------------------------------------------------------------------------
+Web Container Serves Application Root (GET http://localhost:3000/):
+HTTP 200 OK
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <title>Deskline - Employee Service Request System</title>
+    <script type="module" crossorigin src="/assets/index-Bu09mKYu.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DgN1GsjA.css">
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
 
---------------------------------------------------------------------------------
-3. ASSUMPTIONS REVIEW (docs/requirements.md)
---------------------------------------------------------------------------------
-- [ASM-01] Business-Hours Window: 09:00 to 18:00 (M-F) Asia/Kolkata
-  Decision: KEPT
-  Rationale: Reflects standard 9-hour corporate support shifts in Asia/Kolkata and aligns with the 8-hour HIGH SLA resolution target fitting in one business day.
-- [ASM-02] Timezone Parameter: Asia/Kolkata with pure functions & UTC storage
-  Decision: KEPT
-  Rationale: Prevents 5h30m drift when tests or containers run in UTC or America/New_York.
-- [ASM-03] 3-Day Auto-Close & Reopen Window: 72 hours
-  Decision: KEPT
-  Rationale: Allows ample time for requesters to verify resolution while preventing stale tickets from lingering in active queues.
+Web Reverse Proxy forwards to API Container (GET http://localhost:3000/api/health):
+HTTP/1.1 200 OK
+Server: nginx/1.31.6
+Date: Tue, 29 Sep 2026 06:37:32 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 101
+Connection: keep-alive
+X-Powered-By: Express
+Access-Control-Allow-Origin: http://localhost:3000
+Vary: Origin
+Access-Control-Allow-Credentials: true
+ETag: W/"65-byX0glKcgv2DdyFngWFb3z+PJ/s"
+
+{"status":"ok","service":"deskline-api","timestamp":"2026-09-29T06:37:32.300Z","uptime":44.014208553}
+
+Direct API Container Health (GET http://localhost:4000/health):
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Access-Control-Allow-Origin: http://localhost:3000
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Content-Type: application/json; charset=utf-8
+Content-Length: 101
+ETag: W/"65-bm5SREbyd3C8Uxtrn7KD4djjnpM"
+Date: Tue, 29 Sep 2026 06:37:32 GMT
+
+{"status":"ok","service":"deskline-api","timestamp":"2026-09-29T06:37:32.382Z","uptime":44.096138366}
 
 ================================================================================
