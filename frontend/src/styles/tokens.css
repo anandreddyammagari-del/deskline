@@ -1,0 +1,68 @@
+:root {
+  /* Surface and layout tokens */
+  --color-canvas: #F3F5F7;
+  --color-surface: #FFFFFF;
+  --color-border: #D5DBE1;
+  --color-text: #17212B;
+  --color-text-muted: #5B6773;
+
+  /* Accent & functional tokens */
+  --color-accent: #0B6E6E;
+  --color-accent-hover: #095858;
+  --color-danger: #B42318;
+  --color-warning-text: #8A5A00;
+  --color-warning-bg: #FFF1D6;
+
+  /* Ticket status tokens */
+  --status-new-text: #2F4B8F;
+  --status-new-bg: #E6ECF8;
+  --status-new-border: #9DB0DD;
+
+  --status-assigned-text: #0F5F8C;
+  --status-assigned-bg: #E1F0F9;
+  --status-assigned-border: #8FC0DE;
+
+  --status-waiting-text: #6B3F94;
+  --status-waiting-bg: #F0E8F7;
+  --status-waiting-border: #BFA3D8;
+
+  --status-resolved-text: #256B45;
+  --status-resolved-bg: #E2F3E9;
+  --status-resolved-border: #8FCBA8;
+
+  --status-reopened-text: #9A4A0C;
+  --status-reopened-bg: #FBEBDD;
+  --status-reopened-border: #E3B58C;
+
+  --status-closed-text: #4A5561;
+  --status-closed-bg: #ECEFF2;
+  --status-closed-border: #BCC5CE;
+
+  --status-cancelled-text: #6B6B6B;
+  --status-cancelled-bg: #F0F0F0;
+  --status-cancelled-border: #C6C6C6;
+
+  /* Priority tokens */
+  --priority-urgent: #B42318;
+  --priority-high: #B4510F;
+  --priority-medium: #8A6A00;
+  --priority-low: #5B6773;
+
+  /* Typography */
+  --font-family: 'Public Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--color-canvas);
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
