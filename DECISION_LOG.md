@@ -74,3 +74,16 @@ This document records architectural, design, and implementation decisions throug
   2. Single monorepo (`deskline/`) containing `backend/`, `frontend/`, `docs/`, and `evidence/` with phase branches (`phase-0-setup`, `phase-1-database-auth`, etc.).
 - **Decision**: Use a single monorepo rooted at `deskline/`. Every phase is developed on an isolated branch and submitted via Pull Request to `main` for review before merging.
 - **Outcome**: Streamlined audit trail, unified Docker orchestration, and seamless traceability between requirements, code, and evidence.
+
+---
+
+## Decision 007: SHA-256 Pre-Hashing for Refresh Token Storage and Rotation
+- **Date**: 2026-09-29
+- **Status**: Accepted
+- **Context**: Bcrypt has an inherent 72-byte input length limitation. Because JWT strings exceed 150 characters and share identical headers (`{"alg":"HS256","typ":"JWT"}`) and user payload prefixes, raw bcrypt comparison on JWT strings can trigger false-positive matches across rotated tokens.
+- **Alternatives Considered**:
+  1. Rely on raw bcrypt comparison (fails rotation invalidation due to 72-byte truncation).
+  2. Store plain tokens in the database (vulnerable to exposure in database breaches).
+  3. Pre-hash tokens with SHA-256 and store the 64-character hex digest, comparing digests using `crypto.timingSafeEqual` in constant time.
+- **Decision**: Compute SHA-256 digests for all refresh tokens before database storage and perform constant-time comparison during token rotation.
+- **Outcome**: Eliminates 72-byte truncation vulnerabilities, ensures instant invalidation of reused refresh tokens (HTTP 401), and maintains robust protection against timing attacks.

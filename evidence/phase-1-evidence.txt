@@ -1,0 +1,97 @@
+================================================================================
+PHASE 1 DELIVERABLES AND VERIFICATION EVIDENCE
+================================================================================
+
+Date: 2026-09-29 13:40:00 +05:30
+Repository: https://github.com/anandreddyammagari-del/deskline
+Pull Request: https://github.com/anandreddyammagari-del/deskline/pull/2
+Branch: phase-1-database-auth -> base: main (or phase-0-setup)
+
+--------------------------------------------------------------------------------
+1. DATABASE SCHEMA & BASELINE SEED SUMMARY
+--------------------------------------------------------------------------------
+Migration applied: 20260929064226_init_schema
+Seed output:
+- 3 Departments (IT, HR, FACILITIES)
+- 12 Categories mapped to departments with default priorities
+- 4 SLA Policies (URGENT: 30m/4h, HIGH: 1h/8h, MEDIUM: 4h/24h, LOW: 8h/72h)
+- 5 Holidays for 2026 (Republic Day, Independence Day, Gandhi Jayanti, Diwali, Christmas)
+- 10 Demo Users:
+  - 2 Employees: Asha Rao, Vikram Shah
+  - 6 Agents: Ravi Mehta (IT), Kavita Patel (IT), Sunita Iyer (HR), Amit Verma (HR), Prakash Nair (FAC), Deepa Sharma (FAC)
+  - 1 Manager: Meera Kapoor (IT)
+  - 1 Admin: Arjun Desai
+- Zero ticket data seeded (deferred to Phase 4 per Decision 001)
+
+--------------------------------------------------------------------------------
+2. DOCKER CONTAINER STACK STATUS (docker compose ps)
+--------------------------------------------------------------------------------
+NAME           IMAGE                COMMAND                  SERVICE   STATUS                    PORTS
+deskline-api   deskline-api         "docker-entrypoint.s…"   api       Up 19 seconds (healthy)   0.0.0.0:4000->4000/tcp
+deskline-db    postgres:16-alpine   "docker-entrypoint.s…"   db        Up 18 minutes (healthy)   0.0.0.0:5432->5432/tcp
+deskline-web   deskline-web         "/docker-entrypoint.…"   web       Up 15 minutes (healthy)   0.0.0.0:3000->80/tcp
+
+--------------------------------------------------------------------------------
+3. RBAC ROUTE ACCESS & REJECTION EVIDENCE
+--------------------------------------------------------------------------------
+A. Employee (Asha Rao) Login (POST /api/auth/login):
+HTTP/1.1 200 OK
+Set-Cookie: deskline_refresh=...; Path=/; HttpOnly; Secure; SameSite=Lax
+{"accessToken":"...","user":{"name":"Asha Rao","role":"EMPLOYEE"}}
+
+B. Employee calling Agent Queue (GET /api/agent/queue):
+HTTP/1.1 403 Forbidden
+{"statusCode":403,"message":"Access denied: role 'EMPLOYEE' is not authorized to access this resource","code":"Forbidden"}
+
+C. Employee calling Admin Users (GET /api/admin/users):
+HTTP/1.1 403 Forbidden
+{"statusCode":403,"message":"Access denied: role 'EMPLOYEE' is not authorized to access this resource","code":"Forbidden"}
+
+D. Employee calling Categories (GET /api/categories):
+HTTP/1.1 200 OK
+[{"name":"Hardware Failure","defaultPriority":"HIGH","department":{"name":"IT"}}, ...] (12 categories)
+
+E. Agent (Ravi Mehta) calling Agent Queue (GET /api/agent/queue):
+HTTP/1.1 200 OK
+[] (empty array returned, valid Phase 2 groundwork)
+
+F. Agent (Ravi Mehta) calling Admin Users (GET /api/admin/users):
+HTTP/1.1 403 Forbidden
+{"statusCode":403,"message":"Access denied: role 'AGENT' is not authorized to access this resource","code":"Forbidden"}
+
+G. Admin (Arjun Desai) calling Admin Users (GET /api/admin/users):
+HTTP/1.1 200 OK
+[{"name":"Amit Verma","role":"AGENT","department":{"name":"HR"}}, {"name":"Arjun Desai","role":"ADMIN"}, ...]
+
+--------------------------------------------------------------------------------
+4. REFRESH TOKEN ROTATION & REUSE INVALIDATION EVIDENCE
+--------------------------------------------------------------------------------
+Original Cookie captured at login:
+deskline_refresh=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... (jti: 45aa2bad-e4d0-4696-9316-4129c71a521d)
+
+1st Refresh Call (POST /api/auth/refresh with original cookie):
+HTTP/1.1 200 OK
+Set-Cookie: deskline_refresh=eyJ... (jti: 8eaee843-4312-4f41-a12c-05909176b2a4)
+{"accessToken":"...","user":{"name":"Asha Rao","role":"EMPLOYEE"}}
+-> Token ROTATED with new Set-Cookie value!
+
+2nd Refresh Call Reusing the Same Original Cookie (POST /api/auth/refresh):
+HTTP/1.1 401 Unauthorized
+{"statusCode":401,"message":"Refresh token already used or revoked","code":"Unauthorized"}
+-> Reused token is detected, rejected, and revoked!
+
+--------------------------------------------------------------------------------
+5. BROWSER LOGIN SURVIVES PAGE REFRESH EVIDENCE
+--------------------------------------------------------------------------------
+Lifecycle Simulation:
+Step 1: User signs in on browser login page -> HTTP 200 OK
+        Memory access token stored (length 292), httpOnly cookie set.
+Step 2: User presses F5 / browser reloads page
+        Memory access token wiped: null (zero localStorage persistence).
+Step 3: AuthProvider mounts and calls POST /api/auth/refresh with httpOnly cookie.
+        Refresh Status: HTTP 200 OK
+        Restored User: Asha Rao (EMPLOYEE)
+        Memory access token rehydrated: length 292
+Result: Browser login SURVIVED page reload without prompting user for credentials.
+
+================================================================================

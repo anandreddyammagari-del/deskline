@@ -1,0 +1,188 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  EMPLOYEE
+  AGENT
+  MANAGER
+  ADMIN
+}
+
+enum Priority {
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum TicketStatus {
+  NEW
+  ASSIGNED
+  IN_PROGRESS
+  WAITING_ON_REQUESTER
+  RESOLVED
+  CLOSED
+  REOPENED
+  CANCELLED
+}
+
+model User {
+  id               String          @id @default(cuid())
+  name             String
+  email            String          @unique
+  passwordHash     String
+  role             Role            @default(EMPLOYEE)
+  departmentId     String?
+  department       Department?     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  managerId        String?
+  manager          User?           @relation("ManagerSubordinates", fields: [managerId], references: [id], onDelete: SetNull)
+  subordinates     User[]          @relation("ManagerSubordinates")
+  refreshTokenHash String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  requestedTickets Ticket[]        @relation("RequesterTickets")
+  assignedTickets  Ticket[]        @relation("AssigneeTickets")
+  comments         TicketComment[]
+  historyActions   TicketHistory[]
+  auditLogs        AuditLog[]
+
+  @@map("users")
+}
+
+model Department {
+  id        String     @id @default(cuid())
+  name      String     @unique // IT, HR, FACILITIES
+  createdAt DateTime   @default(now())
+
+  users      User[]
+  categories Category[]
+  tickets    Ticket[]
+
+  @@map("departments")
+}
+
+model Category {
+  id              String     @id @default(cuid())
+  name            String
+  departmentId    String
+  department      Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  defaultPriority Priority   @default(MEDIUM)
+  createdAt       DateTime   @default(now())
+
+  tickets Ticket[]
+
+  @@unique([name, departmentId])
+  @@map("categories")
+}
+
+model SlaPolicy {
+  id             String   @id @default(cuid())
+  priority       Priority @unique
+  responseMins   Int
+  resolutionMins Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("sla_policies")
+}
+
+model Ticket {
+  id              String       @id @default(cuid())
+  ticketNo        String       @unique // e.g. REQ-2026-00042
+  requesterId     String
+  requester       User         @relation("RequesterTickets", fields: [requesterId], references: [id], onDelete: Restrict)
+  categoryId      String
+  category        Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  departmentId    String
+  department      Department   @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  assigneeId      String?
+  assignee        User?        @relation("AssigneeTickets", fields: [assigneeId], references: [id], onDelete: SetNull)
+  priority        Priority
+  status          TicketStatus @default(NEW)
+  title           String
+  description     String
+  needsTriage     Boolean      @default(false)
+  firstResponseAt DateTime?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  sla      TicketSla?
+  comments TicketComment[]
+  history  TicketHistory[]
+
+  @@index([departmentId, status])
+  @@index([assigneeId, status])
+  @@map("tickets")
+}
+
+model TicketSla {
+  id                 String    @id @default(cuid())
+  ticketId           String    @unique
+  ticket             Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  responseDueAt      DateTime
+  resolutionDueAt    DateTime
+  pausedAt           DateTime?
+  totalPausedMins    Int       @default(0)
+  responseBreached   Boolean   @default(false)
+  resolutionBreached Boolean   @default(false)
+  escalatedAt        DateTime?
+
+  @@map("ticket_slas")
+}
+
+model TicketComment {
+  id         String   @id @default(cuid())
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  body       String
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@map("ticket_comments")
+}
+
+model TicketHistory {
+  id         String       @id @default(cuid())
+  ticketId   String
+  ticket     Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actorId    String
+  actor      User         @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  fromStatus TicketStatus
+  toStatus   TicketStatus
+  note       String?
+  at         DateTime     @default(now())
+
+  @@map("ticket_histories")
+}
+
+model AuditLog {
+  id       String   @id @default(cuid())
+  actorId  String?
+  actor    User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action   String
+  entity   String
+  entityId String
+  details  String
+  at       DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model Holiday {
+  id   String   @id @default(cuid())
+  date DateTime @unique
+  name String
+
+  @@map("holidays")
+}
