@@ -1,0 +1,83 @@
+﻿================================================================================
+PHASE 0 DELIVERABLES AND VERIFICATION EVIDENCE
+================================================================================
+
+Date: 2026-09-29 11:54:52 +05:30
+Repository: https://github.com/anandreddyammagari-del/deskline
+Pull Request: https://github.com/anandreddyammagari-del/deskline/pull/1
+Active Branch: phase-0-setup -> base: main
+
+--------------------------------------------------------------------------------
+1. REPOSITORY TREE (Filtered: Excluding node_modules, .git, dist)
+--------------------------------------------------------------------------------
+C:\PROJECT\deskline\.env
+C:\PROJECT\deskline\.env.example
+C:\PROJECT\deskline\.gitignore
+C:\PROJECT\deskline\DECISION_LOG.md
+C:\PROJECT\deskline\docker-compose.yml
+C:\PROJECT\deskline\README.md
+C:\PROJECT\deskline\WORKLOG.md
+C:\PROJECT\deskline\backend\Dockerfile
+C:\PROJECT\deskline\backend\nest-cli.json
+C:\PROJECT\deskline\backend\package-lock.json
+C:\PROJECT\deskline\backend\package.json
+C:\PROJECT\deskline\backend\tsconfig.json
+C:\PROJECT\deskline\backend\src\app.module.ts
+C:\PROJECT\deskline\backend\src\main.ts
+C:\PROJECT\deskline\backend\src\common\filters\http-exception.filter.ts
+C:\PROJECT\deskline\backend\src\health\health.controller.ts
+C:\PROJECT\deskline\docs\requirements.md
+C:\PROJECT\deskline\frontend\Dockerfile
+C:\PROJECT\deskline\frontend\index.html
+C:\PROJECT\deskline\frontend\nginx.conf
+C:\PROJECT\deskline\frontend\package-lock.json
+C:\PROJECT\deskline\frontend\package.json
+C:\PROJECT\deskline\frontend\tsconfig.json
+C:\PROJECT\deskline\frontend\vite.config.ts
+C:\PROJECT\deskline\frontend\src\App.tsx
+C:\PROJECT\deskline\frontend\src\main.tsx
+C:\PROJECT\deskline\frontend\src\styles\tokens.css
+
+--------------------------------------------------------------------------------
+2. REVERSE PROXY & HEALTH CHECK VERIFICATION
+--------------------------------------------------------------------------------
+Direct Backend Health Check (GET http://localhost:4000/health):
+HTTP 200 OK
+{"status":"ok","service":"deskline-api","timestamp":"2026-09-29T06:20:47.109Z","uptime":37.3396532}
+
+Web Container Proxy Health Check (GET http://localhost:3000/api/health):
+HTTP 200 OK
+HTTP/1.1 200 OK
+access-control-allow-origin: http://localhost:3000
+access-control-allow-credentials: true
+content-type: application/json; charset=utf-8
+{"status":"ok","service":"deskline-api","timestamp":"2026-09-29T06:21:31.615Z","uptime":81.844367}
+
+Web Root Page Verification (GET http://localhost:3000/):
+HTTP 200 OK (Served React 18 SPA index.html)
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Deskline - Employee Service Request System</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
+--------------------------------------------------------------------------------
+3. ASSUMPTIONS REVIEW (docs/requirements.md)
+--------------------------------------------------------------------------------
+- [ASM-01] Business-Hours Window: 09:00 to 18:00 (M-F) Asia/Kolkata
+  Decision: KEPT
+  Rationale: Reflects standard 9-hour corporate support shifts in Asia/Kolkata and aligns with the 8-hour HIGH SLA resolution target fitting in one business day.
+- [ASM-02] Timezone Parameter: Asia/Kolkata with pure functions & UTC storage
+  Decision: KEPT
+  Rationale: Prevents 5h30m drift when tests or containers run in UTC or America/New_York.
+- [ASM-03] 3-Day Auto-Close & Reopen Window: 72 hours
+  Decision: KEPT
+  Rationale: Allows ample time for requesters to verify resolution while preventing stale tickets from lingering in active queues.
+
+================================================================================
