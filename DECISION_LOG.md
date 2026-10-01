@@ -100,3 +100,17 @@ This document records architectural, design, and implementation decisions throug
   3. Build an ad-hoc partial timezone service in Phase 2 alongside the state machine.
 - **Decision**: Implemented Option (b). A temporary placeholder check with plain millisecond arithmetic gates the reopen transition in Phase 2 (`evaluateStatusTransition`). It is explicitly documented and committed to be replaced wholesale in Phase 3 by the SLA module's unified Luxon/`Asia/Kolkata` pure functions, avoiding any competing time calculation implementations or timezone drift bugs.
 - **Outcome**: State machine behavior is testable and strictly enforces the 72-hour window in Phase 2 without creating a persistent, diverging timezone implementation.
+
+---
+
+## Decision 009: Routing Tiebreaker Ordering for Unassigned Agents (`lastAssignedAt: null`)
+- **Date**: 2026-10-01
+- **Status**: Accepted
+- **Context**: Section 4.3 defines least-loaded routing as selecting the active agent with the fewest open tickets in the department, breaking ties by oldest last-assigned ticket. However, when agents are newly onboarded or have never received an assignment, their `lastAssignedAt` timestamp is `null`. The specification did not explicitly define whether an agent with `null` should precede or follow an agent who has a historical assignment date.
+- **Alternatives Considered**:
+  1. Treat `null` as the current moment (`Date.now()`), penalizing unassigned/new agents so they are picked last among agents with equal workload.
+  2. Treat `null` as epoch zero (`time = 0`), prioritizing unassigned agents so they receive tickets first among tied agents before agents who have recently handled tickets.
+  3. Ignore assignment history entirely when `null` and sort solely by user account creation date.
+- **Decision**: Implemented Option 2. An agent who has never been assigned any ticket (`lastAssignedAt: null`) is evaluated as timestamp `0` (oldest possible instant). When two agents have equal open-ticket workloads (e.g., both have 0 tickets), the unassigned agent receives the ticket before an agent who previously handled an assignment. If both agents have never received a ticket (`time = 0` for both), ties are deterministically broken by oldest user account creation timestamp (`createdAt`).
+- **Outcome**: Equitable work distribution that immediately activates idle or newly onboarded agents without starving them of ticket assignments.
+

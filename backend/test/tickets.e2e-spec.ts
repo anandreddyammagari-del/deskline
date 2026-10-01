@@ -215,6 +215,94 @@ describe('Phase 2 Tickets Core Integration Tests', () => {
       expect(res.body.code).toBe('CONCURRENT_ASSIGNMENT_CONFLICT');
       expect(res.body.message).toContain('Ticket assignment was modified concurrently');
     });
+
+    it('handles two simultaneous concurrent assignment requests (Promise.all) returning exactly one 200 and one 409', async () => {
+      // Shared ticket state simulating database row
+      let ticketInDb = {
+        id: 'ticket-race-1',
+        departmentId: 'dept-it-id',
+        assigneeId: null as string | null,
+        status: TicketStatus.NEW,
+      };
+
+      // Mock user lookups for both candidate agents
+      (jest.spyOn(prisma.user, 'findUnique') as any).mockImplementation(async (args: any) => {
+        if (args.where.id === 'mock-agent-it-1') {
+          return { id: 'mock-agent-it-1', name: 'IT Agent 1', role: Role.AGENT } as any;
+        }
+        if (args.where.id === 'mock-agent-it-2') {
+          return { id: 'mock-agent-it-2', name: 'IT Agent 2', role: Role.AGENT } as any;
+        }
+        return null;
+      });
+
+      // Transaction mock with mutex/isolation: exactly one transaction gets the initial state,
+      // updates it, and the other sees the updated assigneeId and triggers 409
+      let txLock = Promise.resolve();
+      jest.spyOn(prisma, '$transaction').mockImplementation(async (cb: any) => {
+        // Queue transactions sequentially as PostgreSQL serializable/row-level lock would
+        const release = txLock;
+        let resolveNext: () => void;
+        txLock = new Promise<void>((resolve) => {
+          resolveNext = resolve;
+        });
+
+        await release;
+        try {
+          const txMock = {
+            ticket: {
+              findUnique: jest.fn().mockImplementation(async () => ({ ...ticketInDb })),
+              update: jest.fn().mockImplementation(async (params: any) => {
+                ticketInDb = {
+                  ...ticketInDb,
+                  assigneeId: params.data.assigneeId,
+                  status: params.data.status,
+                };
+                return {
+                  ...ticketInDb,
+                  category: { name: 'IT Support' },
+                  department: { name: 'IT' },
+                  assignee: { id: params.data.assigneeId, name: 'Assigned Agent' },
+                };
+              }),
+            },
+            ticketHistory: { create: jest.fn().mockResolvedValue({}) },
+            auditLog: { create: jest.fn().mockResolvedValue({}) },
+          };
+          return await cb(txMock);
+        } finally {
+          resolveNext!();
+        }
+      });
+
+      // Both managers fire simultaneously believing current assignee is null
+      const requestA = request(app.getHttpServer())
+        .patch('/tickets/ticket-race-1/assign')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          assigneeId: 'mock-agent-it-1',
+          expectedCurrentAssigneeId: null,
+        });
+
+      const requestB = request(app.getHttpServer())
+        .patch('/tickets/ticket-race-1/assign')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          assigneeId: 'mock-agent-it-2',
+          expectedCurrentAssigneeId: null,
+        });
+
+      const [resA, resB] = await Promise.all([requestA, requestB]);
+      const statuses = [resA.status, resB.status].sort();
+
+      // Exactly one request must succeed (200) and the other must be rejected (409)
+      expect(statuses).toEqual([200, 409]);
+
+      const conflictRes = resA.status === 409 ? resA : resB;
+      expect(conflictRes.body.statusCode).toBe(409);
+      expect(conflictRes.body.code).toBe('CONCURRENT_ASSIGNMENT_CONFLICT');
+      expect(conflictRes.body.message).toContain('Ticket assignment was modified concurrently');
+    });
   });
 
   describe('Edge Case 3: Stripping Internal Comments for Employees', () => {

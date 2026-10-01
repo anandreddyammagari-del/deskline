@@ -65,18 +65,19 @@ Command: npm run test:e2e (jest --config test/jest-e2e.json)
 PASS test/tickets.e2e-spec.ts
   Phase 2 Tickets Core Integration Tests
     Edge Case 9: No Active Agents Triage Fallback
-      √ creates ticket with status NEW, needsTriage: true, and assigneeId: null when department has no agents (54 ms)
+      √ creates ticket with status NEW, needsTriage: true, and assigneeId: null when department has no agents (115 ms)
     Edge Case 8: Concurrent Assignment Claim
-      √ returns 409 Conflict when expectedCurrentAssigneeId does not match current state (8 ms)
+      √ returns 409 Conflict when expectedCurrentAssigneeId does not match current state (18 ms)
+      √ handles two simultaneous concurrent assignment requests (Promise.all) returning exactly one 200 and one 409 (18 ms)
     Edge Case 3: Stripping Internal Comments for Employees
-      √ strips comments with isInternal: true when an Employee fetches ticket details (6 ms)
+      √ strips comments with isInternal: true when an Employee fetches ticket details (12 ms)
     Edge Case 4: Invalid Out-of-Sequence Status Transition
-      √ returns 400 Bad Request when an invalid status transition is attempted (5 ms)
+      √ returns 400 Bad Request when an invalid status transition is attempted (9 ms)
     Department Scoping on Manager Assignment
-      √ returns 403 Forbidden when HR Manager attempts to reassign an IT ticket (5 ms)
+      √ returns 403 Forbidden when HR Manager attempts to reassign an IT ticket (11 ms)
 
 Test Suites: 1 passed, 1 total
-Tests:       5 passed, 5 total
+Tests:       6 passed, 6 total
 Snapshots:   0 total
 
 ================================================================================

@@ -29,12 +29,13 @@
   - Implemented DTOs with validation pipes (`ticket.dto.ts`) and `TicketsService` with sequential ticket numbering (`REQ-YYYY-NNNNN`), full role scoping, `TicketHistory` recording, and `AuditLog` logging.
   - Wired `agent-queue.controller.ts` directly to `TicketsService.getAgentQueue`.
   - Implemented Supertest integration tests (`backend/test/tickets.e2e-spec.ts`):
-    - Edge Case 8: Concurrent assignment claim returning HTTP 409 Conflict (`CONCURRENT_ASSIGNMENT_CONFLICT`).
+    - Edge Case 8: Sequential stale `expectedCurrentAssigneeId` returning HTTP 409 Conflict (`CONCURRENT_ASSIGNMENT_CONFLICT`).
+    - Edge Case 8 (Concurrent Race): Two simultaneous assignment requests fired via `Promise.all` against the same ticket returning exactly one HTTP 200 and one HTTP 409 Conflict.
     - Edge Case 9: No active agents in department returns HTTP 201 with `needsTriage: true`, `assigneeId: null`, and `status: NEW`.
     - Edge Case 3: Employees fetching ticket details have `isInternal: true` notes stripped.
     - Edge Case 4: Invalid out-of-sequence transitions return HTTP 400 Bad Request (`INVALID_STATUS_TRANSITION`).
     - Department Scoping: Cross-department manager assignment returns HTTP 403 Forbidden (`DEPARTMENT_MISMATCH`).
-  - Recorded Decision 008 in `DECISION_LOG.md` committing to wholesale replacement of the Phase 2 reopen window placeholder in Phase 3.
+  - Recorded Decision 008 (wholesale replacement of reopen time-gate in Phase 3) and Decision 009 (routing tiebreaker ordering for agents with `lastAssignedAt: null` as epoch 0) in `DECISION_LOG.md`.
   - Verified backend and frontend builds with 0 errors.
   - Generated and saved evidence in `evidence/phase-2-evidence.txt`.
 
