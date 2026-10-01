@@ -18,3 +18,23 @@
     - Refresh token rotation: 1st call returns 200 OK with rotated cookie; 2nd call reusing original cookie returns 401 Unauthorized (`Refresh token already used or revoked`).
     - Browser session restoration: Simulated F5 reload restores user session without prompting for login.
   - Documented evidence in `evidence/phase-1-evidence.txt`.
+
+## 2026-10-01: Phase 2 Tickets Core, Pure State Machine, Routing, and Integration Tests
+- **Goal**: Implement Section 4.2 Ticket State Machine as a pure function, Section 4.3 least-loaded routing engine with triage fallback, ticket and comment services/controllers, Supertest integration tests for Edge Cases 8 & 9 (User Addition 1), time-gating placeholder for the 72-hour reopen window with Decision 008 (User Addition 2), and explicit `needsTriage`/`assigneeId` fields in responses (User Addition 3).
+- **Completed Actions**:
+  - Implemented pure state machine `evaluateStatusTransition` (`backend/src/tickets/state-machine/ticket-state-machine.ts`) enforcing all allowed transitions, terminal statuses, note requirements for `WAITING_ON_REQUESTER`, role permissions, and the 72h reopen window limit.
+  - Implemented unit test suite (`ticket-state-machine.spec.ts`) with 19/19 passing tests covering all states, transitions, invalid jumps (Edge Case 4), and the 72-hour expiration (Edge Case 10).
+  - Implemented `RoutingService` (`backend/src/routing/routing.service.ts`) with least-loaded active agent assignment, tie-breaking by oldest last-assigned ticket, and triage fallback (`needsTriage: true`, `assigneeId: null`) for departments without active agents (Edge Case 9).
+  - Implemented routing unit tests (`routing.service.spec.ts`) with 4/4 passing tests.
+  - Implemented DTOs with validation pipes (`ticket.dto.ts`) and `TicketsService` with sequential ticket numbering (`REQ-YYYY-NNNNN`), full role scoping, `TicketHistory` recording, and `AuditLog` logging.
+  - Wired `agent-queue.controller.ts` directly to `TicketsService.getAgentQueue`.
+  - Implemented Supertest integration tests (`backend/test/tickets.e2e-spec.ts`):
+    - Edge Case 8: Concurrent assignment claim returning HTTP 409 Conflict (`CONCURRENT_ASSIGNMENT_CONFLICT`).
+    - Edge Case 9: No active agents in department returns HTTP 201 with `needsTriage: true`, `assigneeId: null`, and `status: NEW`.
+    - Edge Case 3: Employees fetching ticket details have `isInternal: true` notes stripped.
+    - Edge Case 4: Invalid out-of-sequence transitions return HTTP 400 Bad Request (`INVALID_STATUS_TRANSITION`).
+    - Department Scoping: Cross-department manager assignment returns HTTP 403 Forbidden (`DEPARTMENT_MISMATCH`).
+  - Recorded Decision 008 in `DECISION_LOG.md` committing to wholesale replacement of the Phase 2 reopen window placeholder in Phase 3.
+  - Verified backend and frontend builds with 0 errors.
+  - Generated and saved evidence in `evidence/phase-2-evidence.txt`.
+

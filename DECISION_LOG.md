@@ -87,3 +87,16 @@ This document records architectural, design, and implementation decisions throug
   3. Pre-hash tokens with SHA-256 and store the 64-character hex digest, comparing digests using `crypto.timingSafeEqual` in constant time.
 - **Decision**: Compute SHA-256 digests for all refresh tokens before database storage and perform constant-time comparison during token rotation.
 - **Outcome**: Eliminates 72-byte truncation vulnerabilities, ensures instant invalidation of reused refresh tokens (HTTP 401), and maintains robust protection against timing attacks.
+
+---
+
+## Decision 008: Phase 2 Placeholder Time-Window Arithmetic for Reopen (Option B)
+- **Date**: 2026-10-01
+- **Status**: Accepted
+- **Context**: In Phase 2, the ticket state machine handles `RESOLVED -> REOPENED` transitions. Per Section 4.2 and Edge Case 10, reopening is only allowed within 3 calendar days (72 hours) of resolution. However, the comprehensive SLA engine and IANA timezone pure functions are scheduled for development in Phase 3.
+- **Alternatives Considered**:
+  1. Unconditionally allow `RESOLVED -> REOPENED` in Phase 2 with a `// TODO` comment.
+  2. Implement a temporary placeholder check using plain `Date` millisecond arithmetic (`now.getTime() - resolvedAt.getTime() <= 72h`) to enforce the constraint and validate Edge Case 10 in Phase 2 unit tests, with the explicit commitment that this placeholder will be deleted and replaced wholesale in Phase 3 by the unified Luxon/IANA-timezone SLA calculation service.
+  3. Build an ad-hoc partial timezone service in Phase 2 alongside the state machine.
+- **Decision**: Implemented Option (b). A temporary placeholder check with plain millisecond arithmetic gates the reopen transition in Phase 2 (`evaluateStatusTransition`). It is explicitly documented and committed to be replaced wholesale in Phase 3 by the SLA module's unified Luxon/`Asia/Kolkata` pure functions, avoiding any competing time calculation implementations or timezone drift bugs.
+- **Outcome**: State machine behavior is testable and strictly enforces the 72-hour window in Phase 2 without creating a persistent, diverging timezone implementation.

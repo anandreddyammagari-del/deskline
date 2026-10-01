@@ -1,0 +1,118 @@
+DESKLINE - PHASE 2 TICKETS CORE VERIFICATION EVIDENCE
+Generated: 2026-10-01
+Branch: phase-2-tickets-core
+Commit Target: phase-1-database-auth
+
+================================================================================
+PART 1: PURE STATE MACHINE & EDGE CASE 10 UNIT TEST EXECUTION
+================================================================================
+Command: npx jest src/tickets/state-machine/ticket-state-machine.spec.ts
+
+PASS src/tickets/state-machine/ticket-state-machine.spec.ts
+  TicketStateMachine (Pure Function)
+    NEW Status Transitions
+      √ allows NEW -> ASSIGNED by System or Manager or Admin (2 ms)
+      √ rejects NEW -> ASSIGNED by unauthorized Employee or Agent
+      √ rejects out-of-sequence transitions like NEW -> RESOLVED (Edge Case 4)
+    ASSIGNED Status Transitions
+      √ allows ASSIGNED -> IN_PROGRESS by Assignee and flags firstResponseAtNeeded
+      √ rejects ASSIGNED -> IN_PROGRESS by a non-assigned Agent
+    IN_PROGRESS Status Transitions
+      √ allows IN_PROGRESS -> WAITING_ON_REQUESTER by Assignee when note is provided
+      √ rejects IN_PROGRESS -> WAITING_ON_REQUESTER if note is missing
+      √ allows IN_PROGRESS -> RESOLVED by Assignee or Manager and flags setResolvedAt
+    WAITING_ON_REQUESTER Status Transitions
+      √ allows WAITING_ON_REQUESTER -> IN_PROGRESS when Employee replies
+      √ allows WAITING_ON_REQUESTER -> IN_PROGRESS by Assignee
+    RESOLVED Status Transitions & 3-Day Window (Edge Case 10)
+      √ allows RESOLVED -> CLOSED by Requester
+      √ allows RESOLVED -> REOPENED within 3 days (e.g. at 48 hours) (1 ms)
+      √ rejects RESOLVED -> REOPENED after 3 days (e.g. at 73 hours - Edge Case 10)
+      √ rejects RESOLVED -> REOPENED by non-requester staff
+    Terminal Status Rules
+      √ rejects any transition from CLOSED
+      √ rejects any transition from CANCELLED
+    Cancellation Rules
+      √ allows open tickets to be CANCELLED by Requester
+      √ allows open tickets to be CANCELLED by Admin
+      √ rejects cancellation by other unauthorized users
+
+Test Suites: 1 passed, 1 total
+Tests:       19 passed, 19 total
+Snapshots:   0 total
+
+================================================================================
+PART 2: ROUTING SERVICE (LEAST-LOADED & EDGE CASE 9) UNIT TEST EXECUTION
+================================================================================
+Command: npx jest src/routing/routing.service.spec.ts
+
+PASS src/routing/routing.service.spec.ts
+  RoutingService
+    √ Edge Case 9: returns needsTriage = true and assigneeId = null when no agents exist in department (14 ms)
+    √ selects the least-loaded agent when workload differs (2 ms)
+    √ breaks ties using oldest last-assigned ticket when workloads are equal (2 ms)
+    √ prioritizes agent who has never been assigned any ticket over an assigned agent (2 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       4 passed, 4 total
+Snapshots:   0 total
+
+================================================================================
+PART 3: SUPERTEST INTEGRATION TEST SUITE (USER ADDITIONS & EDGE CASES)
+================================================================================
+Command: npm run test:e2e (jest --config test/jest-e2e.json)
+
+PASS test/tickets.e2e-spec.ts
+  Phase 2 Tickets Core Integration Tests
+    Edge Case 9: No Active Agents Triage Fallback
+      √ creates ticket with status NEW, needsTriage: true, and assigneeId: null when department has no agents (54 ms)
+    Edge Case 8: Concurrent Assignment Claim
+      √ returns 409 Conflict when expectedCurrentAssigneeId does not match current state (8 ms)
+    Edge Case 3: Stripping Internal Comments for Employees
+      √ strips comments with isInternal: true when an Employee fetches ticket details (6 ms)
+    Edge Case 4: Invalid Out-of-Sequence Status Transition
+      √ returns 400 Bad Request when an invalid status transition is attempted (5 ms)
+    Department Scoping on Manager Assignment
+      √ returns 403 Forbidden when HR Manager attempts to reassign an IT ticket (5 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       5 passed, 5 total
+Snapshots:   0 total
+
+================================================================================
+PART 4: TYPESCRIPT PRODUCTION BUILDS
+================================================================================
+Backend Build:
+Command: npm run build (in backend/)
+Output:
+> deskline-backend@1.0.0 build
+> nest build
+[Result: Exit code 0]
+
+Frontend Build:
+Command: npm run build (in frontend/)
+Output:
+> deskline-frontend@1.0.0 build
+> tsc && vite build
+✓ 31 modules transformed.
+dist/index.html                   0.69 kB │ gzip:  0.46 kB
+dist/assets/index-DgN1GsjA.css    1.31 kB │ gzip:  0.58 kB
+dist/assets/index-B1k2XmHM.js   158.57 kB │ gzip: 49.88 kB
+✓ built in 605ms
+[Result: Exit code 0]
+
+================================================================================
+PART 5: ARCHITECTURAL & USER REQUIREMENT VERIFICATION
+================================================================================
+1. User Addition 1 (Supertest Edge Cases 8 & 9):
+   - Edge Case 8: Attempting to assign a ticket with a mismatched expectedCurrentAssigneeId returns HTTP 409 CONCURRENT_ASSIGNMENT_CONFLICT.
+   - Edge Case 9: Creating a ticket in a department with zero active agents returns HTTP 201 with needsTriage: true, assigneeId: null, and status: NEW.
+2. User Addition 2 (3-Day Reopen Window & Decision 008):
+   - State machine enforces 72h window via plain millisecond arithmetic (Option b) without timezone drift.
+   - Formal commitment logged in DECISION_LOG.md: This placeholder will be deleted and replaced wholesale in Phase 3 by the unified Luxon/Asia/Kolkata SLA calculation service.
+3. User Addition 3 (Explicit Response Structure for Triage):
+   - All ticket creations output needsTriage: true/false and assigneeId: <id>/null explicitly in the response JSON.
+4. Edge Case 3 (Internal Note Stripping):
+   - GET /tickets/:id evaluates caller role; when caller is an Employee, comments marked isInternal: true are stripped prior to response transmission.
+5. Department Scoping:
+   - Managers attempting to assign or manipulate tickets outside their department are rejected with HTTP 403 DEPARTMENT_MISMATCH.
