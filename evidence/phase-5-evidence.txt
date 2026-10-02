@@ -1,0 +1,54 @@
+DESKLINE - PHASE 5 FRONTEND WORKSPACES VERIFICATION EVIDENCE
+Generated: 2026-10-02
+Branch: phase-5-frontend-workspaces
+Commit Target: phase-4-seed-workload
+
+================================================================================
+PART 1: WORKSPACE ARCHITECTURE & ROLE ISOLATION (Section 8)
+================================================================================
+1. Employee Workspace (frontend/src/workspaces/employee/EmployeeWorkspace.tsx):
+   - /employee/requests: Table listing own requests with StatusBadge, PriorityBadge, SlaChip.
+   - /employee/new: Category picker, title, description with client & server validation.
+   - /employee/requests/:id: Detail view with public conversation thread, cancel request, and 72h reopen button.
+   - Security: Internal staff notes are absent from the DOM and response.
+
+2. Agent Workspace (frontend/src/workspaces/agent/AgentWorkspace.tsx):
+   - /agent/queue: Assigned tickets with SLA countdowns.
+   - /agent/department: All tickets in the agent's department.
+   - Action controls: "Start working" (ASSIGNED -> IN_PROGRESS), "Wait on requester" (with mandatory note), and "Mark resolved".
+   - Staff note toggle: "Mark as internal staff note (hidden from employee)".
+
+3. Manager Workspace (frontend/src/workspaces/manager/ManagerWorkspace.tsx):
+   - /manager/dashboard: 4 KPI tiles (Open requests, SLA breached, compliance %, avg resolution).
+   - Backlog aging brackets (<1d, 1-3d, 3-7d, >7d).
+   - Agent workload distribution table.
+   - /manager/triage: Dedicated triage queue with 1-click agent assignment dropdown.
+   - /manager/team: Full departmental ticket overview.
+
+4. Admin Workspace (frontend/src/workspaces/admin/AdminWorkspace.tsx):
+   - /admin/users: Directory showing all registered users, roles, and departments.
+   - /admin/categories: Category management table with default priorities and department mappings.
+
+5. Shared Shell & Components:
+   - TopBar: Signed-in user name, role badge, department name, Sign out button.
+   - Sidebar: Fixed 232px left navigation with active state highlights.
+   - EvaluatorPage (/evaluator-login): 1-click sign-in for all demo accounts.
+
+================================================================================
+PART 2: PRODUCTION BUILD VERIFICATION
+================================================================================
+Command: npm run build (in frontend/)
+Output:
+> deskline-frontend@1.0.0 build
+> tsc && vite build
+
+vite v6.4.3 building for production...
+transforming...
+✓ 39 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.70 kB │ gzip:  0.47 kB
+dist/assets/index-DgN1GsjA.css    1.31 kB │ gzip:  0.58 kB
+dist/assets/index-D1plwJcu.js   196.13 kB │ gzip: 54.96 kB
+✓ built in 699ms
+[Result: Exit code 0]
