@@ -114,3 +114,16 @@ This document records architectural, design, and implementation decisions throug
 - **Decision**: Implemented Option 2. An agent who has never been assigned any ticket (`lastAssignedAt: null`) is evaluated as timestamp `0` (oldest possible instant). When two agents have equal open-ticket workloads (e.g., both have 0 tickets), the unassigned agent receives the ticket before an agent who previously handled an assignment. If both agents have never received a ticket (`time = 0` for both), ties are deterministically broken by oldest user account creation timestamp (`createdAt`).
 - **Outcome**: Equitable work distribution that immediately activates idle or newly onboarded agents without starving them of ticket assignments.
 
+---
+
+## Decision 010: 72-Hour Reopen Window Retention as Flat Wall-Clock Duration and Pure SLA Replacement
+- **Date**: 2026-10-02
+- **Status**: Accepted
+- **Context**: In Phase 3, the placeholder reopen check in `ticket-state-machine.ts` required resolution: whether the 72-hour window should remain flat calendar wall-clock duration (72 consecutive hours) or be converted into business-hours calculation (like SLA targets).
+- **Alternatives Considered**:
+  1. Convert to business hours (09:00 - 18:00 IST). At 9 hours/day, 72 business hours would stretch the reopen window across 8 full business days (10+ calendar days), breaking auto-closure expectations and confusing employees who expect a 3-day turnaround.
+  2. Keep as flat wall-clock duration (72 hours from `resolvedAt`) implemented as a pure function anchored in UTC timestamps.
+- **Decision**: Implemented Option 2. Reopening is an employee-driven action rather than a staff SLA target, and auto-closure occurs after 3 calendar days (72 hours). The pure function `isWithinReopenWindow(resolvedAt, now)` in `sla-calculator.ts` replaces the temporary Phase 2 placeholder wholesale.
+- **Outcome**: Intuitive, consistent employee experience, zero timezone drift, and perfect mathematical alignment with the background 72-hour auto-close scheduler.
+
+

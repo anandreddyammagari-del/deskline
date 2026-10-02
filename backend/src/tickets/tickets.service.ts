@@ -15,6 +15,7 @@ import {
   AssignTicketDto,
   CreateCommentDto,
 } from './dto/ticket.dto';
+import { SlaService } from '../sla/sla.service';
 import { Role, TicketStatus, User } from '@prisma/client';
 
 @Injectable()
@@ -24,6 +25,7 @@ export class TicketsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly routingService: RoutingService,
+    private readonly slaService: SlaService,
   ) {}
 
   /**
@@ -150,6 +152,9 @@ export class TicketsService {
 
       return created;
     });
+
+    // Initialize SLA tracking in Phase 3
+    await this.slaService.createTicketSla(ticket.id, priority, ticket.createdAt);
 
     return ticket;
   }
@@ -286,6 +291,7 @@ export class TicketsService {
             },
           },
         },
+        sla: true,
       },
     });
 
@@ -384,7 +390,7 @@ export class TicketsService {
     }
 
     // Execute state change in a transaction
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const updateData: any = {
         status: dto.status,
       };
@@ -448,6 +454,25 @@ export class TicketsService {
 
       return updated;
     });
+
+    // Phase 3 SLA Engine lifecycle hooks
+    if (ticket.status === TicketStatus.ASSIGNED && dto.status === TicketStatus.IN_PROGRESS) {
+      await this.slaService.checkFirstResponse(ticketId, new Date());
+    }
+
+    if (ticket.status === TicketStatus.WAITING_ON_REQUESTER && dto.status === TicketStatus.IN_PROGRESS) {
+      await this.slaService.resumeSla(ticketId, new Date());
+    }
+
+    if (dto.status === TicketStatus.WAITING_ON_REQUESTER) {
+      await this.slaService.pauseSla(ticketId, new Date());
+    }
+
+    if (dto.status === TicketStatus.RESOLVED) {
+      await this.slaService.checkResolution(ticketId, new Date());
+    }
+
+    return result;
   }
 
   /**

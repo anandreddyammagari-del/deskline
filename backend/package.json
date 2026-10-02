@@ -16,12 +16,14 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "test:e2e": "jest --config test/jest-e2e.json"
+    "test:e2e": "jest --config test/jest-e2e.json",
+    "test:sla-tz": "node -e \"process.env.TZ='UTC'; require('child_process').execSync('npx jest src/sla/sla-calculator.spec.ts', {stdio:'inherit'}); process.env.TZ='America/New_York'; require('child_process').execSync('npx jest src/sla/sla-calculator.spec.ts', {stdio:'inherit'})\""
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/schedule": "^5.0.1",
     "@prisma/client": "^6.4.0",
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",
