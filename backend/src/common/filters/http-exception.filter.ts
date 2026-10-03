@@ -26,7 +26,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
       } else if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
         const resp = exceptionResponse as Record<string, any>;
         message = Array.isArray(resp.message) ? resp.message.join(', ') : resp.message || message;
-        code = resp.error || resp.code || HttpStatus[status] || code;
+        const rawCode = resp.code || resp.error || HttpStatus[status] || code;
+        code = typeof rawCode === 'string' ? rawCode.toUpperCase().replace(/\s+/g, '_') : code;
       }
     } else if (exception instanceof Error) {
       message = exception.message;

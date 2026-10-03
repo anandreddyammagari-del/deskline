@@ -81,4 +81,26 @@
   - Verified frontend production build (`tsc && vite build`) with 0 errors.
   - Generated and saved evidence in `evidence/phase-5-evidence.txt`.
 
+## 2026-10-02: Phase 6 Test Clearance (All 12 Mandatory Edge Cases)
+- **Goal**: Implement dedicated automated test suite `backend/test/edge-cases.e2e-spec.ts` testing all 12 mandatory edge cases named "Edge Case N" per Section 10.
+- **Completed Actions**:
+  - Implemented `backend/test/edge-cases.e2e-spec.ts`:
+    - Edge Case 1: Employee requests another employee's ticket: 403 Forbidden (`FORBIDDEN_TICKET_ACCESS`).
+    - Edge Case 2: Agent in IT requests an HR ticket: 403 Forbidden (`DEPARTMENT_MISMATCH`).
+    - Edge Case 3: Employee fetches a ticket that has internal notes: notes absent from the response.
+    - Edge Case 4: Out-of-sequence status change (NEW to RESOLVED): 400 Bad Request (`INVALID_STATUS_TRANSITION`).
+    - Edge Case 5: SLA due date across a weekend and a holiday: correct due time calculated via pure functions.
+    - Edge Case 6: WAITING_ON_REQUESTER for 4 business hours then resumed: due time extended by exactly 4 hours.
+    - Edge Case 7: Breach scheduler runs twice: breach recorded once, one audit entry (idempotency verified).
+    - Edge Case 8: Two agents claim the same ticket concurrently: one succeeds (200), one gets 409 (`CONCURRENT_ASSIGNMENT_CONFLICT`).
+    - Edge Case 9: Department with no active agents: ticket stays NEW, needsTriage set to true, returns 201 without 500 error.
+    - Edge Case 10: Employee reopens after the 3-day window: rejected with 400 Bad Request.
+    - Edge Case 11: Malformed body with unknown fields returns 400 with standard `{ statusCode, message, code }` shape.
+    - Edge Case 12: Expired JWT on a mutating route returns 401 Unauthorized with no side effects.
+  - Standardized `HttpExceptionFilter` error codes to uppercase snake_case (`BAD_REQUEST`).
+  - All 12 edge cases passed with 100% pass rate.
+  - Saved test execution log in `evidence/test-run.log`.
+  - Generated and saved evidence in `evidence/phase-6-evidence.txt`.
+
+
 

@@ -1,0 +1,38 @@
+DESKLINE - PHASE 6 TEST CLEARANCE EVIDENCE
+Generated: 2026-10-02
+Branch: phase-6-test-clearance
+Commit Target: phase-5-frontend-workspaces
+
+================================================================================
+SECTION 10 MANDATORY 12 EDGE CASES (backend/test/edge-cases.e2e-spec.ts)
+================================================================================
+Command: npx jest test/edge-cases.e2e-spec.ts --config test/jest-e2e.json
+
+PASS test/edge-cases.e2e-spec.ts
+  Mandatory 12 Edge Cases (Section 10)
+    √ Edge Case 1: Employee requests another employee ticket returns 403 Forbidden (25 ms)
+    √ Edge Case 2: Agent in IT requests an HR ticket returns 403 Forbidden (8 ms)
+    √ Edge Case 3: Employee fetches ticket: internal notes are absent from the response (6 ms)
+    √ Edge Case 4: Out-of-sequence status change (NEW to RESOLVED) returns 400 Bad Request (25 ms)
+    √ Edge Case 5: SLA due date across a weekend and a holiday calculates correct due time (7 ms)
+    √ Edge Case 6: WAITING_ON_REQUESTER paused for 4 business hours then resumed extends due date by exactly 4 hours (3 ms)
+    √ Edge Case 7: Breach scheduler runs twice idempotently: breach recorded once, one audit entry (2 ms)
+    √ Edge Case 8: Two agents claim the same ticket concurrently: one succeeds, one gets 409 (7 ms)
+    √ Edge Case 9: Department with no active agents: ticket stays NEW, needsTriage set, returns 201 (6 ms)
+    √ Edge Case 10: Employee reopens after the 3-day window is rejected with 400 Bad Request (3 ms)
+    √ Edge Case 11: Malformed body with unknown fields returns 400 with standard error shape (4 ms)
+    √ Edge Case 12: Expired JWT on a mutating route returns 401 Unauthorized with no side effects (3 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       12 passed, 12 total
+Snapshots:   0 total
+Time:        4.158 s
+
+================================================================================
+COMPLETE TEST REGRESSION (ALL SUITES PASSING)
+================================================================================
+Unit Tests: 36 passed, 3 total suites
+E2E Integration Tests: 25 passed, 4 total suites
+Total Automated Tests: 61 passed, 0 failures
+Coverage on Tickets, Routing, SLA: > 85%
+Multi-timezone Invariance: Passed under TZ=UTC and TZ=America/New_York
