@@ -115,6 +115,18 @@
   - Verified frontend build with 0 errors.
   - Generated and saved evidence in `evidence/phase-7-evidence.txt`.
 
-
-
+## 2026-10-02: Phase 8 Handoff Artifacts & Submission Tagging
+- **Goal**: Finalize handoff documentation, requirements traceability matrix, evaluation demo script, usability notes, and tag repository `v1.0-submission`.
+- **Completed Actions**:
+  - Authored comprehensive PRD Requirements Traceability Matrix (`docs/traceability.md`) linking AC-01 through AC-15 directly to production controller/service files, unit tests, and e2e edge-case verification tests.
+  - Authored role-by-role usability walkthrough notes (`evidence/usability.md`) documenting keyboard accessibility, contrast standards, and task flows across Employee, Agent, Manager, and Admin roles.
+  - Updated `README.md` with:
+    - 3-command setup and docker compose deployment instructions.
+    - Seed account credentials table with all 7 demo personas.
+    - Architecture overview diagram (React 18 + NestJS 11 + PostgreSQL 16 via Nginx reverse proxy).
+    - 7-8 minute structured evaluator demo script with step-by-step instructions.
+    - Test execution commands including timezone-invariant tests.
+    - Traceability matrix link, known limitations, and production-readiness roadmap.
+  - Validated repository clean state and test suite passing across all 61 tests.
+  - Tagged repository with `v1.0-submission`.
 
