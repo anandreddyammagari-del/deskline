@@ -1,4 +1,5 @@
 import { Role, TicketStatus } from '@prisma/client';
+import { isWithinReopenWindow } from '../../sla/sla-calculator';
 
 export interface TransitionContext {
   currentStatus: TicketStatus;
@@ -190,12 +191,8 @@ export function evaluateStatusTransition(ctx: TransitionContext): TransitionResu
           };
         }
 
-        // TODO [Phase 3 / SLA Engine]: This is option (b) - a temporary placeholder check
-        // using plain Date arithmetic (72 hours). In Phase 3, this will be replaced wholesale
-        // with the Luxon/IANA-timezone SLA calculation service (Section 14, Issue 4) to ensure
-        // unified calendar-day arithmetic without timezone drift.
-        const elapsedMs = now.getTime() - new Date(resolvedAt).getTime();
-        if (elapsedMs > THREE_DAYS_MS) {
+        // Phase 3 SLA Engine: Uses unified pure isWithinReopenWindow calculation
+        if (!isWithinReopenWindow(resolvedAt, now)) {
           return {
             allowed: false,
             reason: "Ticket reopen window has expired. Tickets cannot be reopened after 3 calendar days (72 hours) from resolution.",

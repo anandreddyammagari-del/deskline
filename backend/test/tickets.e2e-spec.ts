@@ -80,6 +80,22 @@ describe('Phase 2 Tickets Core Integration Tests', () => {
         findMany: jest.fn(),
         groupBy: jest.fn(),
       },
+      holiday: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      slaPolicy: {
+        findUnique: jest.fn().mockResolvedValue({
+          priority: 'MEDIUM',
+          responseMins: 240,
+          resolutionMins: 480,
+        }),
+      },
+      ticketSla: {
+        findUnique: jest.fn(),
+        findMany: jest.fn(),
+        create: jest.fn().mockResolvedValue({}),
+        update: jest.fn(),
+      },
       $transaction: jest.fn(),
     };
 

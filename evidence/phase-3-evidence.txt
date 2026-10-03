@@ -1,0 +1,145 @@
+DESKLINE - PHASE 3 SLA ENGINE & SCHEDULER VERIFICATION EVIDENCE
+Generated: 2026-10-02
+Branch: phase-3-sla-scheduler
+Commit Target: main
+
+================================================================================
+PART 1: MULTI-TIMEZONE VERIFICATION SUITE (TZ=UTC & TZ=America/New_York)
+================================================================================
+Command: npm run test:sla-tz
+Script: node -e "process.env.TZ='UTC'; require('child_process').execSync('npx jest src/sla/sla-calculator.spec.ts', {stdio:'inherit'}); process.env.TZ='America/New_York'; require('child_process').execSync('npx jest src/sla/sla-calculator.spec.ts', {stdio:'inherit'})"
+
+--- RUN 1: TZ=UTC ---
+PASS src/sla/sla-calculator.spec.ts
+  SlaCalculator (Pure Functions - Asia/Kolkata)
+    isBusinessDay
+      √ identifies Monday through Friday as business days when not holidays (33 ms)
+      √ identifies Saturday and Sunday as non-business days (2 ms)
+      √ identifies gazetted holidays as non-business days (1 ms)
+    snapToNextBusinessMoment
+      √ snaps after-hours ticket to 09:00 next business day (3 ms)
+      √ snaps weekend ticket to Monday 09:00 IST (1 ms)
+    calculateDueDate
+      √ calculates due date within the same business day (1 ms)
+      √ spans overnight to next business day at 09:00 IST (1 ms)
+      √ spans over the weekend (Friday afternoon into Monday) (2 ms)
+      √ spans over gazetted holidays (1 ms)
+    calculateBusinessMinutesElapsed
+      √ calculates elapsed minutes during working hours (2 ms)
+      √ excludes night hours, weekends, and holidays from paused duration (1 ms)
+    isWithinReopenWindow
+      √ returns true if within 72 calendar hours
+      √ returns false if past 72 calendar hours (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       13 passed, 13 total
+Snapshots:   0 total
+
+--- RUN 2: TZ=America/New_York ---
+PASS src/sla/sla-calculator.spec.ts
+  SlaCalculator (Pure Functions - Asia/Kolkata)
+    isBusinessDay
+      √ identifies Monday through Friday as business days when not holidays (31 ms)
+      √ identifies Saturday and Sunday as non-business days (1 ms)
+      √ identifies gazetted holidays as non-business days (1 ms)
+    snapToNextBusinessMoment
+      √ snaps after-hours ticket to 09:00 next business day (3 ms)
+      √ snaps weekend ticket to Monday 09:00 IST (1 ms)
+    calculateDueDate
+      √ calculates due date within the same business day (2 ms)
+      √ spans overnight to next business day at 09:00 IST (2 ms)
+      √ spans over the weekend (Friday afternoon into Monday) (2 ms)
+      √ spans over gazetted holidays (2 ms)
+    calculateBusinessMinutesElapsed
+      √ calculates elapsed minutes during working hours (1 ms)
+      √ excludes night hours, weekends, and holidays from paused duration (1 ms)
+    isWithinReopenWindow
+      √ returns true if within 72 calendar hours (1 ms)
+      √ returns false if past 72 calendar hours
+
+Test Suites: 1 passed, 1 total
+Tests:       13 passed, 13 total
+Snapshots:   0 total
+
+================================================================================
+PART 2: COMPLETE UNIT TEST SUITE (36/36 TESTS PASSED)
+================================================================================
+Command: npm test (jest)
+
+PASS src/sla/sla-calculator.spec.ts
+PASS src/tickets/state-machine/ticket-state-machine.spec.ts
+PASS src/routing/routing.service.spec.ts
+
+Test Suites: 3 passed, 3 total
+Tests:       36 passed, 36 total
+Snapshots:   0 total
+
+================================================================================
+PART 3: SUPERTEST E2E INTEGRATION SUITE (9/9 TESTS PASSED)
+================================================================================
+Command: npm run test:e2e (jest --config test/jest-e2e.json)
+
+PASS test/sla.e2e-spec.ts
+  Phase 3 SLA Engine & Scheduler Integration Tests
+    SLA Pause and Resume Due Date Extension
+      √ extends response and resolution due dates when ticket resumes from WAITING_ON_REQUESTER (68 ms)
+    Scheduler SLA Breach Sweeper
+      √ detects un-responded breached tickets and flags responseBreached (11 ms)
+    Scheduler 72-Hour Auto-Close Sweeper (Section 4.5 & Edge Case 10)
+      √ automatically closes tickets in RESOLVED status older than 72 calendar hours (10 ms)
+
+PASS test/tickets.e2e-spec.ts
+  Phase 2 Tickets Core Integration Tests
+    Edge Case 9: No Active Agents Triage Fallback
+      √ creates ticket with status NEW, needsTriage: true, and assigneeId: null when department has no agents (115 ms)
+    Edge Case 8: Concurrent Assignment Claim
+      √ returns 409 Conflict when expectedCurrentAssigneeId does not match current state (18 ms)
+      √ handles two simultaneous concurrent assignment requests (Promise.all) returning exactly one 200 and one 409 (18 ms)
+    Edge Case 3: Stripping Internal Comments for Employees
+      √ strips comments with isInternal: true when an Employee fetches ticket details (12 ms)
+    Edge Case 4: Invalid Out-of-Sequence Status Transition
+      √ returns 400 Bad Request when an invalid status transition is attempted (9 ms)
+    Department Scoping on Manager Assignment
+      √ returns 403 Forbidden when HR Manager attempts to reassign an IT ticket (11 ms)
+
+Test Suites: 2 passed, 2 total
+Tests:       9 passed, 9 total
+Snapshots:   0 total
+
+================================================================================
+PART 4: PRODUCTION BUILD VERIFICATION
+================================================================================
+Backend Build:
+Command: npm run build
+Output:
+> deskline-backend@1.0.0 build
+> nest build
+[Result: Exit code 0]
+
+Frontend Build:
+Command: npm run build
+Output:
+> deskline-frontend@1.0.0 build
+> tsc && vite build
+✓ 31 modules transformed.
+dist/index.html                   0.69 kB │ gzip:  0.46 kB
+dist/assets/index-DgN1GsjA.css    1.31 kB │ gzip:  0.58 kB
+dist/assets/index-B1k2XmHM.js   158.57 kB │ gzip: 49.88 kB
+✓ built in 605ms
+[Result: Exit code 0]
+
+================================================================================
+PART 5: ARCHITECTURAL DECISIONS & COMMITMENTS
+================================================================================
+1. Timezone Invariance (Revision 1.1 Bug Fix):
+   - All calculations anchor explicitly to 'Asia/Kolkata' (09:00 - 18:00 IST), skipping weekends and gazetted holidays.
+   - Tested under UTC and America/New_York with identical millisecond precision outputs.
+2. Decision 010 (72-Hour Reopen Window):
+   - Flat 72 calendar hours duration retained for requester reopening.
+   - Temporary Date arithmetic deleted and replaced wholesale with pure isWithinReopenWindow function.
+3. Clock Pausing & Resumption:
+   - Pausing on WAITING_ON_REQUESTER records pausedAt.
+   - Resuming computes elapsed business minutes and extends responseDueAt and resolutionDueAt.
+4. Autonomous Background Sweeps:
+   - 1-minute sweep for SLA response and resolution breach detection + escalation.
+   - 72-hour auto-close sweep transitioning eligible RESOLVED tickets to CLOSED with audit logs.

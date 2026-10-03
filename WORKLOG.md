@@ -39,3 +39,16 @@
   - Verified backend and frontend builds with 0 errors.
   - Generated and saved evidence in `evidence/phase-2-evidence.txt`.
 
+## 2026-10-02: Phase 3 SLA Engine, Scheduler, and Timezone Isolation
+- **Goal**: Implement Section 4.4 SLA calculation pure functions (business hours 09:00 - 18:00 IST, holiday calendar, weekend skip), clock pause and resume extension during `WAITING_ON_REQUESTER`, Section 4.5 background scheduler (1-minute SLA breach sweeps and 72-hour auto-close sweep), wholesale replacement of the 72h reopen check with pure functions, multi-timezone test verification (`TZ=UTC` and `TZ=America/New_York`), and Supertest integration tests.
+- **Completed Actions**:
+  - Implemented pure SLA calculation engine in `backend/src/sla/sla-calculator.ts` with explicit IANA timezone `Asia/Kolkata` anchoring (`calculateDueDate`, `calculateBusinessMinutesElapsed`, `extendDueDate`, `isWithinReopenWindow`).
+  - Replaced the temporary Phase 2 reopen window date arithmetic in `ticket-state-machine.ts` wholesale with `isWithinReopenWindow` (Decision 010).
+  - Built `SlaService` (`backend/src/sla/sla.service.ts`) initializing `TicketSla` on ticket creation, handling clock pauses on `WAITING_ON_REQUESTER`, computing elapsed business minutes on resumption to extend due dates, and detecting response/resolution breaches.
+  - Built `SchedulerService` (`backend/src/scheduler/scheduler.service.ts`) running every minute for SLA breach detection and escalation, and hourly for 72-hour auto-closure of `RESOLVED` tickets to `CLOSED`.
+  - Added dedicated `npm run test:sla-tz` script in `backend/package.json` to verify timezone invariance across `TZ=UTC` and `TZ=America/New_York`. All 13 tests passed identically under both zones.
+  - Implemented Supertest integration tests in `backend/test/sla.e2e-spec.ts` covering SLA pause/resume due-date extension, background breach sweep, and 72-hour auto-closure.
+  - Recorded Decision 010 in `DECISION_LOG.md`.
+  - Generated and saved evidence in `evidence/phase-3-evidence.txt`.
+
+
