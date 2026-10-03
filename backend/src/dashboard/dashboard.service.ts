@@ -81,43 +81,43 @@ export class DashboardService {
       },
     });
 
-    // 4. Completed tickets for SLA compliance rate and average resolution time
-    const completedTickets = await this.prisma.ticket.findMany({
-      where: {
-        ...whereScope,
-        status: { in: [TicketStatus.RESOLVED, TicketStatus.CLOSED] },
-        resolvedAt: { not: null },
-      },
-      select: {
-        createdAt: true,
-        resolvedAt: true,
-        sla: {
-          select: {
-            resolutionBreached: true,
-          },
-        },
-      },
-      take: 1000, // sample most recent 1000 for bounded sub-millisecond calculation
-      orderBy: { resolvedAt: 'desc' },
-    });
+    // 4. Completed tickets for SLA compliance rate and average resolution time via native SQL aggregation
+    interface CompletedStats {
+      total_completed: number;
+      met_count: number;
+      avg_resolution_mins: number;
+    }
+
+    const completedStats = departmentId
+      ? await this.prisma.$queryRaw<CompletedStats[]>`
+          SELECT 
+            COUNT(s.id)::int AS total_completed,
+            COUNT(CASE WHEN s."resolutionBreached" = false THEN 1 END)::int AS met_count,
+            COALESCE(AVG(EXTRACT(EPOCH FROM (t."resolvedAt" - t."createdAt")) / 60), 0)::float AS avg_resolution_mins
+          FROM tickets t
+          LEFT JOIN ticket_slas s ON s."ticketId" = t.id
+          WHERE t."departmentId" = ${departmentId}
+            AND t.status IN ('RESOLVED', 'CLOSED') 
+            AND t."resolvedAt" IS NOT NULL
+        `
+      : await this.prisma.$queryRaw<CompletedStats[]>`
+          SELECT 
+            COUNT(s.id)::int AS total_completed,
+            COUNT(CASE WHEN s."resolutionBreached" = false THEN 1 END)::int AS met_count,
+            COALESCE(AVG(EXTRACT(EPOCH FROM (t."resolvedAt" - t."createdAt")) / 60), 0)::float AS avg_resolution_mins
+          FROM tickets t
+          LEFT JOIN ticket_slas s ON s."ticketId" = t.id
+          WHERE t.status IN ('RESOLVED', 'CLOSED') 
+            AND t."resolvedAt" IS NOT NULL
+        `;
 
     let slaMetPercent = 100;
     let avgResolutionMinutes = 0;
 
-    if (completedTickets.length > 0) {
-      const metCount = completedTickets.filter(
-        (t) => !t.sla || !t.sla.resolutionBreached,
-      ).length;
-      slaMetPercent = Math.round((metCount / completedTickets.length) * 100);
-
-      const totalResolutionMs = completedTickets.reduce((acc, t) => {
-        const diff = t.resolvedAt!.getTime() - t.createdAt.getTime();
-        return acc + Math.max(0, diff);
-      }, 0);
-
-      avgResolutionMinutes = Math.round(
-        totalResolutionMs / (completedTickets.length * 60 * 1000),
-      );
+    if (completedStats && completedStats.length > 0 && completedStats[0].total_completed > 0) {
+      const stats = completedStats[0];
+      slaMetPercent = Math.round((stats.met_count / stats.total_completed) * 100);
+      avgResolutionMinutes = Math.round(stats.avg_resolution_mins);
     }
 
     return {
@@ -131,56 +131,53 @@ export class DashboardService {
 
   /**
    * GET /dashboard/backlog-aging
-   * Buckets open tickets by age: <1d, 1-3d, 3-7d, >7d.
+   * Buckets open tickets by age: <1d, 1-3d, 3-7d, >7d using native database aggregation.
    */
   async getBacklogAging(user: User): Promise<BacklogAgingResponse> {
     const departmentId = this.getDepartmentScope(user);
-    const now = new Date();
 
-    const openStatuses: TicketStatus[] = [
-      TicketStatus.NEW,
-      TicketStatus.ASSIGNED,
-      TicketStatus.IN_PROGRESS,
-      TicketStatus.WAITING_ON_REQUESTER,
-      TicketStatus.REOPENED,
-    ];
+    interface AgingRow {
+      under1Day: number;
+      from1To3Days: number;
+      from3To7Days: number;
+      over7Days: number;
+    }
 
-    const whereScope: any = departmentId ? { departmentId } : {};
+    const agingStats = departmentId
+      ? await this.prisma.$queryRaw<AgingRow[]>`
+          SELECT 
+            COUNT(CASE WHEN EXTRACT(EPOCH FROM (NOW() - "createdAt")) < 86400 THEN 1 END)::int AS "under1Day",
+            COUNT(CASE WHEN EXTRACT(EPOCH FROM (NOW() - "createdAt")) >= 86400 AND EXTRACT(EPOCH FROM (NOW() - "createdAt")) < 259200 THEN 1 END)::int AS "from1To3Days",
+            COUNT(CASE WHEN EXTRACT(EPOCH FROM (NOW() - "createdAt")) >= 259200 AND EXTRACT(EPOCH FROM (NOW() - "createdAt")) < 604800 THEN 1 END)::int AS "from3To7Days",
+            COUNT(CASE WHEN EXTRACT(EPOCH FROM (NOW() - "createdAt")) >= 604800 THEN 1 END)::int AS "over7Days"
+          FROM tickets
+          WHERE "departmentId" = ${departmentId}
+            AND status IN ('NEW', 'ASSIGNED', 'IN_PROGRESS', 'WAITING_ON_REQUESTER', 'REOPENED')
+        `
+      : await this.prisma.$queryRaw<AgingRow[]>`
+          SELECT 
+            COUNT(CASE WHEN EXTRACT(EPOCH FROM (NOW() - "createdAt")) < 86400 THEN 1 END)::int AS "under1Day",
+            COUNT(CASE WHEN EXTRACT(EPOCH FROM (NOW() - "createdAt")) >= 86400 AND EXTRACT(EPOCH FROM (NOW() - "createdAt")) < 259200 THEN 1 END)::int AS "from1To3Days",
+            COUNT(CASE WHEN EXTRACT(EPOCH FROM (NOW() - "createdAt")) >= 259200 AND EXTRACT(EPOCH FROM (NOW() - "createdAt")) < 604800 THEN 1 END)::int AS "from3To7Days",
+            COUNT(CASE WHEN EXTRACT(EPOCH FROM (NOW() - "createdAt")) >= 604800 THEN 1 END)::int AS "over7Days"
+          FROM tickets
+          WHERE status IN ('NEW', 'ASSIGNED', 'IN_PROGRESS', 'WAITING_ON_REQUESTER', 'REOPENED')
+        `;
 
-    const openTickets = await this.prisma.ticket.findMany({
-      where: {
-        ...whereScope,
-        status: { in: openStatuses },
-      },
-      select: {
-        createdAt: true,
-      },
-    });
-
-    const dayMs = 24 * 60 * 60 * 1000;
-    let under1Day = 0;
-    let from1To3Days = 0;
-    let from3To7Days = 0;
-    let over7Days = 0;
-
-    for (const ticket of openTickets) {
-      const ageDays = (now.getTime() - ticket.createdAt.getTime()) / dayMs;
-      if (ageDays < 1) {
-        under1Day++;
-      } else if (ageDays < 3) {
-        from1To3Days++;
-      } else if (ageDays < 7) {
-        from3To7Days++;
-      } else {
-        over7Days++;
-      }
+    if (agingStats && agingStats.length > 0) {
+      return {
+        under1Day: agingStats[0].under1Day ?? 0,
+        from1To3Days: agingStats[0].from1To3Days ?? 0,
+        from3To7Days: agingStats[0].from3To7Days ?? 0,
+        over7Days: agingStats[0].over7Days ?? 0,
+      };
     }
 
     return {
-      under1Day,
-      from1To3Days,
-      from3To7Days,
-      over7Days,
+      under1Day: 0,
+      from1To3Days: 0,
+      from3To7Days: 0,
+      over7Days: 0,
     };
   }
 

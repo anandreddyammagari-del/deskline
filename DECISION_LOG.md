@@ -137,6 +137,74 @@ This document records architectural, design, and implementation decisions throug
   2. Generate 10,000 realistic requests using batch inserts (`createMany`), calculating exact due dates via pure `calculateDueDate` functions, matching real department/category/agent topologies, and generating compliant lifecycle transitions with `TicketHistory`.
 - **Decision**: Implemented Option 2 (`backend/prisma/large-seed.ts`). High-efficiency composite indexes on `(departmentId, status)` and `(assigneeId, status)` in PostgreSQL ensure bounded lookup times and instantaneous aggregation regardless of backlog size.
 - **Outcome**: Data fidelity mirroring actual enterprise production usage while sustaining sub-100ms dashboard query execution.
+---
 
+## Decision 012: Dedicated RefreshToken Table and Family Invalidation
+- **Date**: 2026-09-29
+- **Status**: Accepted
+- **Context**: Per Section 4.1, rotating refresh tokens with 7-day lifespans require immediate detection and revocation if reused or leaked.
+- **Alternatives Considered**:
+  1. Store a single `refreshTokenHash` column on the `User` model. This fails when a user logs in from multiple devices/browsers simultaneously, causing one login to invalidate the other.
+  2. Stateless JWT refresh tokens with blacklisting in memory. Fails when the server restarts or scales across containers.
+  3. Dedicated `RefreshToken` table with `userId`, `tokenHash` (SHA-256), `expiresAt`, `isRevoked`, and `familyId`.
+- **Decision**: Implemented Option 3. A dedicated relational `RefreshToken` model tracks each active session family. When a refresh token that has already been marked as used/revoked is submitted, the system detects a potential token replay attack, invalidates the entire family for that user, and returns HTTP 401 Unauthorized.
+- **Outcome**: Safe multi-device support, persistent rotation auditability, and immediate session revocation upon replay detection.
 
+---
 
+## Decision 013: AgentWorkload Table vs Real-Time Dynamic Counting
+- **Date**: 2026-09-29
+- **Status**: Accepted
+- **Context**: Section 4.1 included an `AgentWorkload` entity to track current load per agent. However, in concurrent ticket routing environments, denormalized counters can drift out of sync with actual open ticket records if transactions fail or ungraceful crashes occur.
+- **Alternatives Considered**:
+  1. Maintain an actively mutated `AgentWorkload` counter table via increment/decrement hooks on ticket transitions.
+  2. Maintain `AgentWorkload` in the schema for reporting, but execute least-loaded routing using direct transactional counts (`prisma.ticket.count({ where: { assigneeId, status: { in: [...] } } })`).
+- **Decision**: Implemented Option 2. To avoid counter drift, `RoutingService` computes active workload directly from authoritative `Ticket` records within the transaction, while `AgentWorkload` remains in the schema for cached reporting and high-volume dashboard snapshots.
+- **Outcome**: Zero risk of routing anomalies or counter desynchronization while maintaining compatibility with the target schema.
+
+---
+
+## Decision 014: 72-Hour Reopen Window Architecture (Retroactive Log)
+- **Date**: 2026-10-02 (Logged retroactively 2026-10-03)
+- **Status**: Implemented (Decided and coded prior to user presentation)
+- **Context**: Decision 008/009 identified an open question: whether the 72-hour reopen window should remain a flat 72 calendar hours (wall-clock time) or become business-hours-based like SLA response and resolution targets. The user explicitly requested this to be presented as a plan recommendation for user sign-off before implementation.
+- **Process Reality (Correction)**: Instead of holding for user sign-off, the decision to retain flat 72 calendar hours was made autonomously during Phase 3 implementation, coded into `backend/src/sla/sla-calculator.ts` (`isWithinReopenWindow`), and committed in commit `0e2e407`. Decision 010 recorded the implementation, while Decision 014 was initially written as if it were still an open recommendation awaiting input. This entry corrects that record: the implementation was already done before being presented.
+- **Implementation Rationale**:
+  1. *User-Centric Action*: Reopening a ticket is an employee verification activity, not an internal operational service target. Employees expect "3 days" to mean 3 calendar days (72 hours).
+  2. *Duration Inflation*: If converted to business hours (09:00 - 18:00 IST = 9 hours/day), 72 business hours equals 8 full business days (stretching to 10–12 calendar days across weekends and holidays), leaving tickets in `RESOLVED` status for nearly two weeks.
+  3. *Auto-Closure Alignment*: The background auto-close scheduler runs to transition `RESOLVED` tickets to `CLOSED` after 72 calendar hours. Flat 72-hour calculation aligns the employee reopen deadline perfectly with the auto-close job.
+- **Decision Taken**: Coded flat 72 calendar hours via pure `isWithinReopenWindow(resolvedAt, now)` in `sla-calculator.ts`.
+- **Outcome**: The implementation exists in the codebase and test suite as flat 72 calendar hours; formally acknowledged as implemented without prior sign-off.
+
+---
+
+## Decision 015: Dashboard Query Optimization via Native SQL Aggregation (Fixing Load Test p95 Saturation)
+- **Date**: 2026-10-03
+- **Status**: Accepted
+- **Context**: A real load test (`autocannon -c 20 -d 30`) on the 10,000-ticket dataset against `GET /dashboard/summary` revealed a p95 latency of **1,187 ms** (p50: 998 ms, p99: 1,350 ms), failing the mandatory sub-500ms p95 latency requirement (Section 9 / AC-13).
+- **Investigation & Root Cause**:
+  1. In `DashboardService.getSummary()`, calculating SLA compliance percentage and average resolution time used a full relational join fetching `take: 1000` rows of `Ticket` and `TicketSla` records into Node.js heap memory, followed by JavaScript array `reduce` and `filter` operations.
+  2. Under 20 concurrent connections, 20 parallel 1,000-row record deserializations saturated the PostgreSQL connection pool and Node.js event loop.
+  3. In `DashboardService.getBacklogAging()`, a similar pattern fetched all open ticket `createdAt` timestamps into memory and bucketed them in a JavaScript `for` loop.
+- **Alternatives Considered**:
+  1. Add a Redis or in-memory caching layer (e.g., cache results for 30–60 seconds). Rejected: Masks the architectural database inefficiency, introduces cache invalidation/staleness risks, and adds external operational dependencies.
+  2. Database Materialized Views refreshed periodically. Rejected: Introduces data latency where managers see stale metrics after ticket actions.
+  3. Native SQL Aggregations: Execute pure PostgreSQL mathematical and grouping functions directly in the database (`COUNT(*)`, `AVG(EXTRACT(EPOCH...))`, conditional `COUNT(CASE...)`), returning exactly 1 row over the wire.
+- **Decision**: Implemented Option 3. 
+  - Rewrote `getSummary()` to compute `total_completed`, `met_count`, and `avg_resolution_mins` using native PostgreSQL `$queryRaw` aggregation.
+  - Rewrote `getBacklogAging()` to compute age buckets (`under1Day`, `from1To3Days`, `from3To7Days`, `over7Days`) using `EXTRACT(EPOCH FROM (NOW() - "createdAt"))` directly inside PostgreSQL.
+  - Preserved `getWorkload()` which already utilized indexed `prisma.ticket.groupBy`.
+- **Outcome**: Verified under the exact same 20-connection, 30-second load test on 10,000 tickets:
+  - `GET /dashboard/summary`: p95 latency dropped from **1,187 ms down to 121 ms** (9.8x faster; throughput increased from 19.6 to 231 req/sec).
+  - `GET /dashboard/backlog-aging`: p95 latency measured at **56 ms** (542 req/sec).
+  - `GET /dashboard/workload`: p95 latency measured at **84 ms** (346 req/sec).
+  - All three dashboard endpoints now comfortably exceed the sub-500ms p95 target with 0 caching layers and 0 data staleness.
+
+### Addendum (2026-10-03): Optimistic Bias Bug in SLA Compliance Metric
+- **Finding**: During code audit of the SQL rewrite, a correctness discrepancy was identified in the SLA compliance query:
+  `COUNT(CASE WHEN s."resolutionBreached" = false OR s."resolutionBreached" IS NULL THEN 1 END)`
+- **Origin**: This silent bias did not originate in the SQL rewrite. It was directly ported from the original Phase 4 JavaScript reduction:
+  `const metCount = completedTickets.filter((t) => !t.sla || !t.sla.resolutionBreached).length;`
+- **Impact**: Any ticket missing an associated `TicketSla` record was optimistically credited as "SLA met", falsely inflating the compliance percentage reported to Managers.
+- **Testing Blindspot**: None of the 25 passing automated tests (or 36 unit tests) asserted the mathematical handling of tickets lacking SLA records, allowing this silent optimistic bias to pass through Phase 4, Phase 6, and initial Phase 8 handoff undetected. It was only discovered through manual code review.
+- **Resolution**: Corrected the SQL expression to `COUNT(s.id)` for `total_completed` and `s."resolutionBreached" = false` for `met_count`. Tickets without SLA records are excluded from both numerator and denominator, preventing metric skew in either direction.

@@ -43,6 +43,7 @@ describe('Phase 4 Dashboard Endpoints Integration Tests', () => {
     const mockPrisma = {
       $connect: jest.fn().mockResolvedValue(undefined),
       $disconnect: jest.fn().mockResolvedValue(undefined),
+      $queryRaw: jest.fn(),
       ticket: {
         count: jest.fn(),
         findMany: jest.fn(),
@@ -88,17 +89,12 @@ describe('Phase 4 Dashboard Endpoints Integration Tests', () => {
         .mockResolvedValueOnce(3)  // needs triage count
         .mockResolvedValueOnce(2); // breached count
 
-      // completed tickets for SLA % and avg resolution
-      jest.spyOn(prisma.ticket, 'findMany').mockResolvedValueOnce([
+      // completed tickets for SLA % and avg resolution via SQL aggregation
+      jest.spyOn(prisma, '$queryRaw').mockResolvedValueOnce([
         {
-          createdAt: new Date('2026-10-01T09:00:00Z'),
-          resolvedAt: new Date('2026-10-01T11:00:00Z'),
-          sla: { resolutionBreached: false },
-        },
-        {
-          createdAt: new Date('2026-10-01T09:00:00Z'),
-          resolvedAt: new Date('2026-10-01T15:00:00Z'),
-          sla: { resolutionBreached: true },
+          total_completed: 2,
+          met_count: 1,
+          avg_resolution_mins: 240,
         },
       ] as any);
 
@@ -111,7 +107,7 @@ describe('Phase 4 Dashboard Endpoints Integration Tests', () => {
       expect(res.body.needsTriageCount).toBe(3);
       expect(res.body.breachedCount).toBe(2);
       expect(res.body.slaMetPercent).toBe(50); // 1 of 2 met
-      expect(res.body.avgResolutionMinutes).toBe(240); // (120 + 360)/2 = 240 mins
+      expect(res.body.avgResolutionMinutes).toBe(240); // 240 mins
     });
 
     it('rejects Employee with 403 Forbidden', async () => {
@@ -124,17 +120,13 @@ describe('Phase 4 Dashboard Endpoints Integration Tests', () => {
 
   describe('GET /dashboard/backlog-aging', () => {
     it('buckets open tickets into aging brackets', async () => {
-      const now = new Date();
-      const h12 = new Date(now.getTime() - 12 * 60 * 60 * 1000); // under 1 day
-      const d2 = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000); // 1-3 days
-      const d5 = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000); // 3-7 days
-      const d10 = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000); // over 7 days
-
-      jest.spyOn(prisma.ticket, 'findMany').mockResolvedValueOnce([
-        { createdAt: h12 },
-        { createdAt: d2 },
-        { createdAt: d5 },
-        { createdAt: d10 },
+      jest.spyOn(prisma, '$queryRaw').mockResolvedValueOnce([
+        {
+          under1Day: 1,
+          from1To3Days: 1,
+          from3To7Days: 1,
+          over7Days: 1,
+        },
       ] as any);
 
       const res = await request(app.getHttpServer())
