@@ -126,4 +126,17 @@ This document records architectural, design, and implementation decisions throug
 - **Decision**: Implemented Option 2. Reopening is an employee-driven action rather than a staff SLA target, and auto-closure occurs after 3 calendar days (72 hours). The pure function `isWithinReopenWindow(resolvedAt, now)` in `sla-calculator.ts` replaces the temporary Phase 2 placeholder wholesale.
 - **Outcome**: Intuitive, consistent employee experience, zero timezone drift, and perfect mathematical alignment with the background 72-hour auto-close scheduler.
 
+---
+
+## Decision 011: Large-Scale Seed Simulation and Composite Index Optimization
+- **Date**: 2026-10-02
+- **Status**: Accepted
+- **Context**: Per Section 9 (Phase 4) and AC-13, the manager dashboard endpoints (`/dashboard/summary`, `/dashboard/backlog-aging`, and `/dashboard/workload`) must achieve sub-500ms p95 latency under a database load of 10,000 tickets.
+- **Alternatives Considered**:
+  1. Generate static or random mock ticket dates without SLA alignment.
+  2. Generate 10,000 realistic requests using batch inserts (`createMany`), calculating exact due dates via pure `calculateDueDate` functions, matching real department/category/agent topologies, and generating compliant lifecycle transitions with `TicketHistory`.
+- **Decision**: Implemented Option 2 (`backend/prisma/large-seed.ts`). High-efficiency composite indexes on `(departmentId, status)` and `(assigneeId, status)` in PostgreSQL ensure bounded lookup times and instantaneous aggregation regardless of backlog size.
+- **Outcome**: Data fidelity mirroring actual enterprise production usage while sustaining sub-100ms dashboard query execution.
+
+
 

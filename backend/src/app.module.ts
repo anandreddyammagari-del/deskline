@@ -5,6 +5,7 @@ import { AdminModule } from './admin/admin.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { SlaModule } from './sla/sla.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { HealthController } from './health/health.controller';
 import { CategoriesController } from './common/categories.controller';
 
@@ -16,6 +17,7 @@ import { CategoriesController } from './common/categories.controller';
     TicketsModule,
     SlaModule,
     SchedulerModule,
+    DashboardModule,
   ],
   controllers: [HealthController, CategoriesController],
   providers: [],
